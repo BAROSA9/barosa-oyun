@@ -36,12 +36,14 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 10;
+            transition: transform 0.05s ease, background-color 0.1s ease;
         }
 
         #crosshair::before, #crosshair::after {
             content: '';
             position: absolute;
             background: rgba(0, 255, 200, 0.8);
+            transition: background 0.1s ease;
         }
 
         #crosshair::before {
@@ -50,6 +52,27 @@
 
         #crosshair::after {
             top: -10px; left: 4px; width: 2px; height: 30px;
+        }
+
+        #crosshair.hit::before, #crosshair.hit::after {
+            background: #ff0033 !important;
+            box-shadow: 0 0 8px #ff0033;
+        }
+
+        #kill-feed {
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            font-weight: 900;
+            color: #ff3333;
+            text-shadow: 0 0 15px rgba(255, 51, 51, 0.9);
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            pointer-events: none;
+            z-index: 12;
+            letter-spacing: 2px;
         }
 
         #damage-flash {
@@ -152,6 +175,23 @@
         .btn-start:hover {
             transform: scale(1.05);
         }
+
+        #visitor-counter {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            z-index: 99999;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: white;
+            font-family: sans-serif;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -159,6 +199,7 @@
 
     <div id="game-container">
         <div id="crosshair"></div>
+        <div id="kill-feed">DÜŞMAN ETKİSİZ HALE GETİRİLDİ!</div>
         <div id="damage-flash"></div>
         <div id="reload-msg">YENİDEN DOLDURULUYOR...</div>
 
@@ -173,11 +214,16 @@
                 <h1 id="screen-title">BAROSA 3D ARENA</h1>
                 <p id="screen-desc">Oynamak ve nişan almak için ekrana tıkla!<br><br>
                 <b>W, A, S, D</b> — Hareket Et<br>
-                <b>FARE SOL TIK</b> — Ateş Et (Optimize Edildi)<br>
+                <b>FARE SOL TIK</b> — Ateş Et<br>
                 <b>R</b> — Şarjör Yenile (2sn)<br>
                 <b>SPACE</b> — Zıpla</p>
                 <button class="btn-start" id="start-btn">SAVAŞA KATIL</button>
             </div>
+        </div>
+
+        <div id="visitor-counter">
+            <span>Ziyaretçi:</span>
+            <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fbarosa9.github.io%2Fbarosa-oyun&count_bg=%2300E676&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=TOPLAM&edge_flat=false" alt="Ziyaretçi" />
         </div>
     </div>
 
@@ -198,15 +244,14 @@
         const reloadTime = 2000;
 
         let lastShootTime = 0;
-        const shootCooldown = 120; // Güvenli aralık
+        const shootCooldown = 120;
 
         let weapon, weaponGroup, muzzleFlash;
         let enemies = [];
-        let particles = [];
+        let bloodParticles = [];
         let obstacles = [];
-        
         let bulletPool = [];
-        const maxPoolSize = 20; // Havuz boyutu sınırlandı
+        const maxPoolSize = 20;
 
         const playerRadius = 0.6;
 
@@ -215,6 +260,8 @@
         const hudHealth = document.getElementById('health');
         const reloadMsg = document.getElementById('reload-msg');
         const damageFlash = document.getElementById('damage-flash');
+        const crosshair = document.getElementById('crosshair');
+        const killFeed = document.getElementById('kill-feed');
         const blocker = document.getElementById('blocker');
         const screenTitle = document.getElementById('screen-title');
         const screenDesc = document.getElementById('screen-desc');
@@ -248,7 +295,7 @@
             createWeapon();
             initBulletPool();
 
-            renderer = new THREE.WebGLRenderer({ antialias: false }); // Performans için antialias kapatıldı
+            renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             document.getElementById('game-container').appendChild(renderer.domElement);
@@ -278,7 +325,7 @@
         }
 
         function initBulletPool() {
-            const bulletGeo = new THREE.SphereGeometry(0.12, 4, 4); // Düşük poligon
+            const bulletGeo = new THREE.SphereGeometry(0.12, 4, 4);
             const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
 
             for (let i = 0; i < maxPoolSize; i++) {
@@ -307,6 +354,26 @@
                 bullet.lifeTime = 0;
             }
             return bullet;
+        }
+
+        function spawnBloodEffect(position) {
+            const particleCount = 12;
+            const pGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+            const pMat = new THREE.MeshBasicMaterial({ color: 0xbb0000 });
+
+            for (let i = 0; i < particleCount; i++) {
+                const p = new THREE.Mesh(pGeo, pMat);
+                p.position.copy(position);
+                scene.add(p);
+
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 4,
+                    Math.random() * 3 + 1,
+                    (Math.random() - 0.5) * 4
+                );
+
+                bloodParticles.push({ mesh: p, velocity: vel, life: 0.4 });
+            }
         }
 
         function createMapBoundaries() {
@@ -369,6 +436,20 @@
             scene.add(camera);
         }
 
+        function triggerHitmarker() {
+            crosshair.classList.add('hit');
+            setTimeout(() => { crosshair.classList.remove('hit'); }, 150);
+        }
+
+        function triggerKillFeed() {
+            killFeed.style.opacity = '1';
+            killFeed.style.transform = 'translate(-50%, -60%)';
+            setTimeout(() => {
+                killFeed.style.opacity = '0';
+                killFeed.style.transform = 'translate(-50%, -50%)';
+            }, 800);
+        }
+
         function shoot() {
             if (isReloading || !isLocked) return;
 
@@ -387,10 +468,14 @@
             muzzleFlash.material.opacity = 1;
             setTimeout(() => { muzzleFlash.material.opacity = 0; }, 30);
 
+            // Silah tepme efekti (Recoil)
+            weaponGroup.position.z = -0.4;
+            setTimeout(() => { weaponGroup.position.z = -0.5; }, 50);
+
             const raycaster = new THREE.Raycaster();
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
-            const intersects = raycaster.intersectObjects(enemies.map(e => e.mesh), true);
+            const intersects = raycaster.intersectObjects(enemies.map(e => e.bodyMesh), true);
 
             const shootDir = new THREE.Vector3();
             camera.getWorldDirection(shootDir);
@@ -398,13 +483,17 @@
             getBulletFromPool(startPos, shootDir.multiplyScalar(2.5));
 
             if (intersects.length > 0) {
+                const hitPoint = intersects[0].point;
                 let hitMesh = intersects[0].object;
+
                 while (hitMesh.parent && hitMesh.parent.type === "Group") {
                     hitMesh = hitMesh.parent;
                 }
 
                 const enemyObj = enemies.find(e => e.mesh === hitMesh);
                 if (enemyObj) {
+                    triggerHitmarker();
+                    spawnBloodEffect(hitPoint);
                     enemyObj.takeDamage(35);
                 }
             }
@@ -481,11 +570,19 @@
 
             const enemyObj = {
                 mesh: enemyGroup,
+                bodyMesh: body,
+                material: bodyMat,
                 health: 100,
                 lastAttackTime: 0,
                 takeDamage: function(damage) {
                     this.health -= damage;
+                    
+                    // Anlık Hasar Parlaması
+                    this.material.color.setHex(0xffffff);
+                    setTimeout(() => { this.material.color.setHex(0xcc2222); }, 80);
+
                     if (this.health <= 0) {
+                        triggerKillFeed();
                         scene.remove(this.mesh);
                         enemies = enemies.filter(e => e !== this);
                         score += 100;
@@ -553,7 +650,7 @@
             requestAnimationFrame(animate);
 
             const time = performance.now();
-            const delta = Math.min((time - prevTime) / 1000, 0.1); // Frame kilitlenme koruması
+            const delta = Math.min((time - prevTime) / 1000, 0.1);
 
             if (isLocked && health > 0) {
                 velocity.x -= velocity.x * 10.0 * delta;
@@ -584,7 +681,7 @@
                     canJump = true;
                 }
 
-                // Mermi Havuzu Güncellemesi
+                // Mermileri Güncelle
                 bulletPool.forEach(bullet => {
                     if (bullet.active) {
                         bullet.position.addScaledVector(bullet.velocity, delta * 60);
@@ -598,7 +695,20 @@
                     }
                 });
 
-                // Düşman Bot Takibi
+                // Kan Parçacıklarını Güncelle
+                for (let i = bloodParticles.length - 1; i >= 0; i--) {
+                    const p = bloodParticles[i];
+                    p.mesh.position.addScaledVector(p.velocity, delta);
+                    p.velocity.y -= 9.8 * delta;
+                    p.life -= delta;
+
+                    if (p.life <= 0) {
+                        scene.remove(p.mesh);
+                        bloodParticles.splice(i, 1);
+                    }
+                }
+
+                // Düşman Takibi
                 const now = performance.now();
                 enemies.forEach(e => {
                     e.mesh.lookAt(camera.position.x, e.mesh.position.y, camera.position.z);
