@@ -4,12 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BAROSA OYUN | 3D Tactical FPS</title>
-    
-    <!-- Three.js Kütüphanesi -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- GLTFLoader Eklentisi (İşte eklediğimiz sihirli satır bu) -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-
     <style>
         * {
             box-sizing: border-box;
@@ -298,32 +292,7 @@
 
             createMapBoundaries();
             createObstacles();
-            function createWeapon() {
-            weaponGroup = new THREE.Group();
-
-            // M16 Modelini Yükleme
-            const loader = new THREE.GLTFLoader();
-            loader.load('m16.glb', (gltf) => {
-                const model = gltf.scene;
-                model.scale.set(0.5, 0.5, 0.5); // Silah büyük veya küçük gelirse bu sayıları değiştirebilirsin (örn: 0.2 veya 1.0)
-                model.position.set(0, -0.1, -0.3); // Ekrandaki duruş pozisyonu
-                model.rotation.y = Math.PI; // Silah arkaya bakıyorsa yönünü düzeltir
-                weaponGroup.add(model);
-            }, undefined, (error) => {
-                console.log("Model yüklenirken hata oluştu:", error);
-            });
-
-            // Ateş etme efekti için Muzzle Flash (Işık)
-            const flashGeo = new THREE.SphereGeometry(0.08, 6, 6);
-            const flashMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0 });
-            muzzleFlash = new THREE.Mesh(flashGeo, flashMat);
-            muzzleFlash.position.set(0, 0.02, -0.65);
-            weaponGroup.add(muzzleFlash);
-
-            weaponGroup.position.set(0.25, -0.25, -0.5);
-            camera.add(weaponGroup);
-            scene.add(camera);
-        }
+            createWeapon();
             initBulletPool();
 
             renderer = new THREE.WebGLRenderer({ antialias: false });
@@ -499,7 +468,6 @@
             muzzleFlash.material.opacity = 1;
             setTimeout(() => { muzzleFlash.material.opacity = 0; }, 30);
 
-            // Silah tepme efekti (Recoil)
             weaponGroup.position.z = -0.4;
             setTimeout(() => { weaponGroup.position.z = -0.5; }, 50);
 
@@ -562,7 +530,7 @@
 
         function gameOver() {
             document.exitPointerLock();
-            screenTitle.textContent = "ÖLDÜN AMK";
+            screenTitle.textContent = "GÖREV BAŞARISIZ";
             screenDesc.innerHTML = `Düşmanlar tarafından etkisiz hale getirildin.<br>Toplanan Skor: <b>${score}</b>`;
             startBtn.textContent = "Yeniden Dene";
             blocker.style.display = 'flex';
@@ -608,7 +576,6 @@
                 takeDamage: function(damage) {
                     this.health -= damage;
                     
-                    // Anlık Hasar Parlaması
                     this.material.color.setHex(0xffffff);
                     setTimeout(() => { this.material.color.setHex(0xcc2222); }, 80);
 
@@ -712,7 +679,6 @@
                     canJump = true;
                 }
 
-                // Mermileri Güncelle
                 bulletPool.forEach(bullet => {
                     if (bullet.active) {
                         bullet.position.addScaledVector(bullet.velocity, delta * 60);
@@ -726,7 +692,6 @@
                     }
                 });
 
-                // Kan Parçacıklarını Güncelle
                 for (let i = bloodParticles.length - 1; i >= 0; i--) {
                     const p = bloodParticles[i];
                     p.mesh.position.addScaledVector(p.velocity, delta);
@@ -739,7 +704,6 @@
                     }
                 }
 
-                // Düşman Takibi
                 const now = performance.now();
                 enemies.forEach(e => {
                     e.mesh.lookAt(camera.position.x, e.mesh.position.y, camera.position.z);
