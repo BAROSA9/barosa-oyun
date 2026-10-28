@@ -292,7 +292,32 @@
 
             createMapBoundaries();
             createObstacles();
-            createWeapon();
+            function createWeapon() {
+            weaponGroup = new THREE.Group();
+
+            // M16 Modelini Yükleme
+            const loader = new THREE.GLTFLoader();
+            loader.load('m16.glb', (gltf) => {
+                const model = gltf.scene;
+                model.scale.set(0.5, 0.5, 0.5); // Silah büyük veya küçük gelirse bu sayıları değiştirebilirsin (örn: 0.2 veya 1.0)
+                model.position.set(0, -0.1, -0.3); // Ekrandaki duruş pozisyonu
+                model.rotation.y = Math.PI; // Silah arkaya bakıyorsa yönünü düzeltir
+                weaponGroup.add(model);
+            }, undefined, (error) => {
+                console.log("Model yüklenirken hata oluştu:", error);
+            });
+
+            // Ateş etme efekti için Muzzle Flash (Işık)
+            const flashGeo = new THREE.SphereGeometry(0.08, 6, 6);
+            const flashMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0 });
+            muzzleFlash = new THREE.Mesh(flashGeo, flashMat);
+            muzzleFlash.position.set(0, 0.02, -0.65);
+            weaponGroup.add(muzzleFlash);
+
+            weaponGroup.position.set(0.25, -0.25, -0.5);
+            camera.add(weaponGroup);
+            scene.add(camera);
+        }
             initBulletPool();
 
             renderer = new THREE.WebGLRenderer({ antialias: false });
