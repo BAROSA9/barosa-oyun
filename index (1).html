@@ -283,6 +283,8 @@ function spawnEnemy(){
   body.position.y=.7;body.castShadow=true;g.add(body);
   const head=new THREE.Mesh(new THREE.SphereGeometry(.25,8,8),mat);
   head.position.y=1.65;head.castShadow=true;g.add(head);
+  const hb=new THREE.Mesh(new THREE.SphereGeometry(.42,8,8),new THREE.MeshBasicMaterial({visible:false}));
+  hb.position.y=1.65;g.add(hb);
   g.scale.setScalar(T.scale);
 
   let x,z,tries=0;
@@ -291,8 +293,8 @@ function spawnEnemy(){
   }while(tries<50&&((Math.abs(x-camera.position.x)<18&&Math.abs(z-camera.position.z)<18)||collides({x,z},1.2)));
   g.position.set(x,0,z);scene.add(g);
 
-  const e={mesh:g,body,head,mat,T,hp:T.hp,dead:false,lastAttack:0,lastShot:0,side:Math.random()<.5?1:-1,baseColor:T.color};
-  body.userData.enemy=e;head.userData.enemy=e;
+  const e={mesh:g,body,head:hb,mat,T,hp:T.hp,dead:false,lastAttack:0,lastShot:0,side:Math.random()<.5?1:-1,baseColor:T.color};
+  body.userData.enemy=e;hb.userData.enemy=e;
   enemies.push(e);
 }
 
@@ -352,11 +354,15 @@ function shoot(){
   muzzleFlash.material.opacity=1;setTimeout(()=>{muzzleFlash.material.opacity=0},35);
   weaponGroup.position.z=-.52;setTimeout(()=>{weaponGroup.position.z=-.65},60);
 
+  camera.updateMatrixWorld(true);
+  enemies.forEach(e=>e.mesh.updateMatrixWorld(true));
+  let tracerDir=null;
   const rc=new THREE.Raycaster();
   const targets=obstacleMeshes.concat(...enemies.map(e=>[e.body,e.head]));
-  const sp=w.spread*(ads?.2:1);
+  const sp=w.spread*(ads?(curW===2?0:.2):1);
   for(let i=0;i<w.pellets;i++){
-    rc.setFromCamera(new THREE.Vector2((Math.random()-.5)*2*sp*5,(Math.random()-.5)*2*sp*5),camera);
+    rc.setFromCamera(new THREE.Vector2((Math.random()-.5)*2*sp*2,(Math.random()-.5)*2*sp*2),camera);
+    if(i===0)tracerDir=rc.ray.direction.clone();
     const hit=rc.intersectObjects(targets,false)[0];
     if(hit&&hit.object.userData.enemy){
       const isHead=hit.object.userData.enemy.head===hit.object;
@@ -364,7 +370,7 @@ function shoot(){
       spawnBlood(hit.point);
     }
   }
-  const d=new THREE.Vector3();camera.getWorldDirection(d);
+  const d=tracerDir.clone();
   fireTracer(camera.position.clone().add(new THREE.Vector3(0,-.1,0)),d.multiplyScalar(2.5));
   if(ammoState[curW]===0)reloadWeapon();
 }
