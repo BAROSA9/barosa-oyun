@@ -253,7 +253,7 @@
         let bulletPool = [];
         const maxPoolSize = 20;
 
-        const playerRadius = 0.6;
+        const playerRadius = 0.8; // Çarpışma yarıçapı artırıldı
 
         const hudScore = document.getElementById('score');
         const hudAmmo = document.getElementById('ammo');
@@ -275,7 +275,8 @@
             scene.background = new THREE.Color(0x050608);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1.7, 0);
+            // DÜZELTME: Kamera başlangıç noktası kutulardan uzak açık alana yerleştirildi (Z: 20)
+            camera.position.set(0, 1.7, 20);
             scene.add(camera);
 
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -285,14 +286,12 @@
             dirLight.position.set(30, 50, 30);
             scene.add(dirLight);
 
-            // Gelişmiş Zemin (Grid / Izgara Görünümlü Taktiksel Zemin)
             const floorGeo = new THREE.PlaneGeometry(120, 120);
             const floorMat = new THREE.MeshBasicMaterial({ color: 0x161a23 });
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
             scene.add(floor);
 
-            // Zemin Izgara Çizgileri
             const gridHelper = new THREE.GridHelper(120, 30, 0xff2a2a, 0x2a3040);
             gridHelper.position.y = 0.01;
             scene.add(gridHelper);
@@ -397,33 +396,36 @@
                 const wall = new THREE.Mesh(wallGeo, wallMat);
                 wall.position.set(w.x, w.y, w.z);
                 scene.add(wall);
+
+                // DÜZELTME: Çarpışma kutularını dünya pozisyonuna göre güncelleme
+                wall.updateMatrixWorld(true);
                 obstacles.push(new THREE.Box3().setFromObject(wall));
             });
         }
 
-        // --- TAKTİKSEL ARENA VE BİNALAR ---
         function createAdvancedTacticalMap() {
             const concreteMat = new THREE.MeshBasicMaterial({ color: 0x2b313f });
             const metalMat = new THREE.MeshBasicMaterial({ color: 0x1e222b });
             const hazardMat = new THREE.MeshBasicMaterial({ color: 0x3d4454 });
 
             // 1. Merkezde Büyük Stratejik Ana Bina
-            const centerBuildingGeo = new THREE.BoxGeometry(10, 5, 10);
+            const centerBuildingGeo = new THREE.BoxGeometry(12, 6, 12);
             const centerBuilding = new THREE.Mesh(centerBuildingGeo, concreteMat);
-            centerBuilding.position.set(0, 2.5, 0);
+            centerBuilding.position.set(0, 3, 0);
             scene.add(centerBuilding);
+            centerBuilding.updateMatrixWorld(true);
             obstacles.push(new THREE.Box3().setFromObject(centerBuilding));
 
-            // 2. Çeşitli Siper Duvarları ve Konteyner Bloklar (Girilemeyen Katı Yapılar)
+            // 2. Çeşitli Siper Duvarları ve Konteyner Bloklar (Katı ve Tam Engelli)
             const mapStructures = [
-                { w: 6, h: 3, d: 2, x: -15, z: -15, mat: hazardMat },
-                { w: 6, h: 3, d: 2, x: 15, z: 15, mat: hazardMat },
-                { w: 2, h: 3, d: 8, x: -25, z: 10, mat: metalMat },
-                { w: 2, h: 3, d: 8, x: 25, z: -10, mat: metalMat },
-                { w: 8, h: 4, d: 2, x: 0, z: -25, mat: concreteMat },
-                { w: 8, h: 4, d: 2, x: 0, z: 25, mat: concreteMat },
-                { w: 5, h: 3, d: 5, x: -30, z: -30, mat: hazardMat },
-                { w: 5, h: 3, d: 5, x: 30, z: 30, mat: hazardMat }
+                { w: 6, h: 4, d: 2, x: -15, z: -15, mat: hazardMat },
+                { w: 6, h: 4, d: 2, x: 15, z: -15, mat: hazardMat },
+                { w: 2, h: 4, d: 8, x: -25, z: 10, mat: metalMat },
+                { w: 2, h: 4, d: 8, x: 25, z: 10, mat: metalMat },
+                { w: 8, h: 4, d: 2, x: -10, z: 30, mat: concreteMat },
+                { w: 8, h: 4, d: 2, x: 10, z: 30, mat: concreteMat },
+                { w: 6, h: 4, d: 6, x: -30, z: -30, mat: hazardMat },
+                { w: 6, h: 4, d: 6, x: 30, z: -30, mat: hazardMat }
             ];
 
             mapStructures.forEach(item => {
@@ -431,6 +433,7 @@
                 const mesh = new THREE.Mesh(geo, item.mat);
                 mesh.position.set(item.x, item.h / 2, item.z);
                 scene.add(mesh);
+                mesh.updateMatrixWorld(true);
                 obstacles.push(new THREE.Box3().setFromObject(mesh));
             });
         }
@@ -579,7 +582,8 @@
             for (let i = 0; i < 4; i++) {
                 spawnEnemy();
             }
-            camera.position.set(0, 1.7, 0);
+            // DÜZELTME: Yeniden doğuşta da açık alanda başlat
+            camera.position.set(0, 1.7, 20);
         }
 
         function spawnEnemy() {
@@ -595,7 +599,7 @@
             do {
                 spawnX = (Math.random() - 0.5) * 80;
                 spawnZ = (Math.random() - 0.5) * 80;
-            } while (Math.abs(spawnX) < 10 && Math.abs(spawnZ) < 10); // Başlangıç noktasına çok yakın doğmasınlar
+            } while (Math.abs(spawnX - camera.position.x) < 15 && Math.abs(spawnZ - camera.position.z) < 15);
 
             enemyGroup.position.set(spawnX, 0, spawnZ);
             scene.add(enemyGroup);
@@ -665,6 +669,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
+        // DÜZELTME: Hassas ve geçilmez duvar çarpışma kontrolü
         function checkCollisions(newPosition) {
             const playerBox = new THREE.Box3(
                 new THREE.Vector3(newPosition.x - playerRadius, 0, newPosition.z - playerRadius),
@@ -699,9 +704,11 @@
                 const moveZ = velocity.z * delta;
                 const currentPos = camera.position.clone();
 
+                // X Ekseninde Hareket ve Çarpışma Testi
                 camera.translateX(moveX);
                 if (checkCollisions(camera.position)) camera.position.x = currentPos.x;
 
+                // Z Ekseninde Hareket ve Çarpışma Testi
                 camera.translateZ(moveZ);
                 if (checkCollisions(camera.position)) camera.position.z = currentPos.z;
 
